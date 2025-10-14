@@ -1,10 +1,7 @@
-// app/login/page.js
-"use client";
+"use client"; // mark the entire page as client-only
 
-import dynamic from "next/dynamic";
+import LoginPageClient from "./LoginPageClient";
 
-const LoginPageClient = dynamic(() => import("./LoginPageClient"), { ssr: false });
-
-export default function LoginPage() {
+export default function Page() {
   return <LoginPageClient />;
 }

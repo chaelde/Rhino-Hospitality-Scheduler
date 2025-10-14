@@ -12,7 +12,6 @@ export default function LoginPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Detect recovery token from URL
   const accessToken = searchParams?.get("access_token");
   const type = searchParams?.get("type");
 
@@ -31,7 +30,6 @@ export default function LoginPageClient() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Fetch employee role
       const { data: empData } = await supabase
         .from("employees")
         .select("role")
@@ -74,7 +72,9 @@ export default function LoginPageClient() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h1 className="text-3xl font-bold text-center text-white mb-6">Welcome to Rhino Hospitality Group</h1>
+        <h1 className="text-3xl font-bold text-center text-white mb-6">
+          Welcome to Rhino Hospitality Group
+        </h1>
 
         {message && <p className="text-center text-yellow-400 mb-4">{message}</p>}
 
