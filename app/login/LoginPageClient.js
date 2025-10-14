@@ -1,36 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPageClient() {
-  const router = useRouter();
-  const [accessToken, setAccessToken] = useState(null);
-  const [type, setType] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Read query params safely on the client
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setAccessToken(params.get("access_token"));
-    setType(params.get("type"));
-  }, []);
+  const accessToken = searchParams?.get("access_token");
+  const type = searchParams?.get("type");
 
-  // Handle recovery links
   useEffect(() => {
     if (accessToken && type === "recovery") {
       router.replace(`/update-password?access_token=${accessToken}`);
     }
   }, [accessToken, type, router]);
-
-  // ...rest of login logic here
-
-
-
 
   const handleLogin = async (e) => {
     e.preventDefault();
