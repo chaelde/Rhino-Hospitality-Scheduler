@@ -12,10 +12,15 @@ export default function LoginPageClient() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [mounted, setMounted] = useState(false); // <-- new
 
   // Detect recovery token from URL
   const accessToken = searchParams?.get("access_token");
   const type = searchParams?.get("type");
+
+  useEffect(() => {
+    setMounted(true); // <-- page is mounted
+  }, []);
 
   useEffect(() => {
     if (accessToken && type === "recovery") {
@@ -73,6 +78,9 @@ export default function LoginPageClient() {
       setLoading(false);
     }
   };
+
+  // <-- only render after mounted
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
