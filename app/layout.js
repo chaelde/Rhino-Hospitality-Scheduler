@@ -7,7 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { usePathname } from "next/navigation";
 
 export default function RootLayout({ children }) {
-  const [user, setUser] = useState(undefined); // undefined means "loading"
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -15,16 +16,21 @@ export default function RootLayout({ children }) {
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
+        setUser(session?.user ?? null);
+        setLoading(false);
+
+        // Subscribe to auth changes
         const { data } = supabase.auth.onAuthStateChange((_event, session) => {
           setUser(session?.user ?? null);
         });
         subscription = data.subscription;
       } catch (err) {
         console.error("Error initializing auth:", err);
-        setUser(null);
+        setLoading(false);
       }
     };
 
@@ -37,8 +43,8 @@ export default function RootLayout({ children }) {
 
   const hideNav = ["/login", "/signed-out"].includes(pathname);
 
-  // Render a loading placeholder until auth is resolved
-  if (user === undefined) {
+  // Only show loading indicator if auth is loading AND the page expects a user
+  if (loading && !hideNav) {
     return (
       <html lang="en">
         <body className="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center">
