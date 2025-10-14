@@ -1,5 +1,4 @@
-"use client"; // mark the entire page as client-only
-
+// app/login/page.js
 import LoginPageClient from "./LoginPageClient";
 
 export default function Page() {

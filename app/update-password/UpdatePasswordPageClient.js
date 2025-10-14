@@ -1,6 +1,7 @@
+// app/update-password/UpdatePasswordPageClient.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -13,6 +14,9 @@ export default function UpdatePasswordPageClient() {
   const [loading, setLoading] = useState(false);
 
   const accessToken = searchParams.get("access_token");
+
+  // rest of your password logic...
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
