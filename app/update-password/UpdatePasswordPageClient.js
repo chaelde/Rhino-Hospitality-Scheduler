@@ -1,22 +1,22 @@
-// app/update-password/UpdatePasswordPageClient.js
 "use client";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function UpdatePasswordPageClient() {
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const [accessToken, setAccessToken] = useState(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const accessToken = searchParams.get("access_token");
-
-  // rest of your password logic...
-
+  // Get access token from URL safely on client
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setAccessToken(params.get("access_token"));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,16 +27,27 @@ export default function UpdatePasswordPageClient() {
       return;
     }
 
+    if (!accessToken) {
+      setMessage("Missing access token.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
       const { error } = await supabase.auth.updateUser({
         access_token: accessToken,
         password,
       });
+
       if (error) throw error;
+
       setMessage("Password updated successfully!");
       setTimeout(() => router.push("/login"), 2000);
     } catch (err) {
       setMessage(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
