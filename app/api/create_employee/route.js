@@ -1,137 +1,93 @@
-"use client";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { name, email, phone, role, location_id } = body;
 
-export default function SetPasswordPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const [accessToken, setAccessToken] = useState("");
-  const [email, setEmail] = useState("");
-
-  useEffect(() => {
-    try {
-      const tokenParam = searchParams.get("access_token");
-      const emailParam = searchParams.get("email");
-
-      if (!tokenParam || !emailParam) {
-        setError("Invalid or missing invite link.");
-        return;
-      }
-
-      // Decode in case URL encoding caused issues
-      setAccessToken(decodeURIComponent(tokenParam));
-      setEmail(decodeURIComponent(emailParam));
-    } catch (err) {
-      console.error("Error parsing URL params:", err);
-      setError("Invalid invite link format.");
-    }
-  }, [searchParams]);
-
-  const validatePassword = (pw) => {
-    const regex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]).{8,}$/;
-    return regex.test(pw);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (!validatePassword(password)) {
-      setError(
-        "Password must be at least 8 characters and include lowercase, uppercase, number, and special character."
+    // ✅ Validate required fields
+    if (!name || !email || !role || !location_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields." }),
+        { status: 400 }
       );
-      return;
     }
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
+    // ✅ Validate location_id format (UUID)
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(location_id)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid location_id." }),
+        { status: 400 }
+      );
     }
 
-    if (!accessToken) {
-      setError("Missing access token.");
-      return;
-    }
+    // ✅ Step 1: Invite user (sends Supabase Confirm Signup email)
+    const redirectTo = `${
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      process.env.VERCEL_URL ||
+      "http://localhost:3000"
+    }/set-password`;
 
-    setLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.updateUser({
-        access_token: accessToken,
-        password,
+    const { data: inviteData, error: inviteError } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo,
       });
 
-      if (error) {
-        console.error("Error updating password:", error);
-        setError(error.message);
-      } else {
-        setSuccess("Password successfully set! You can now log in.");
-        setTimeout(() => router.push("/login"), 3000);
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Unexpected error setting password.");
-    } finally {
-      setLoading(false);
+    if (inviteError) {
+      console.error("Error sending invite:", inviteError);
+      return new Response(
+        JSON.stringify({ error: inviteError.message }),
+        { status: 400 }
+      );
     }
-  };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-200 p-4">
-      <div className="w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold mb-4">Set Your Password</h1>
-        <p className="mb-4 text-gray-400">
-          Please create a password for your account. Requirements:
-        </p>
-        <ul className="list-disc list-inside mb-4 text-gray-300">
-          <li>At least 8 characters</li>
-          <li>At least 1 lowercase letter</li>
-          <li>At least 1 uppercase letter</li>
-          <li>At least 1 number</li>
-          <li>At least 1 special character</li>
-        </ul>
+    const userId = inviteData?.user?.id;
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "User creation failed — no ID returned." }),
+        { status: 500 }
+      );
+    }
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 text-gray-200 border border-gray-600"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 text-gray-200 border border-gray-600"
-            required
-          />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {success && <p className="text-green-400 text-sm">{success}</p>}
+    // ✅ Step 2: Insert employee into employees table
+    const { data: employee, error: empError } = await supabaseAdmin
+      .from("employees")
+      .insert([
+        {
+          auth_id: userId,
+          name,
+          email,
+          phone: phone || null,
+          role,
+          location_id,
+        },
+      ])
+      .select()
+      .single();
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-2 rounded font-semibold ${
-              loading ? "bg-gray-500" : "bg-blue-600 hover:bg-blue-500"
-            }`}
-          >
-            {loading ? "Setting password..." : "Set Password"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+    if (empError) {
+      console.error("Error inserting employee:", empError);
+      return new Response(
+        JSON.stringify({ error: empError.message }),
+        { status: 400 }
+      );
+    }
+
+    // ✅ Step 3: Return success
+    return new Response(
+      JSON.stringify({
+        message: "Employee invited successfully. Email sent for account setup.",
+        employee,
+      }),
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    );
+  }
 }
