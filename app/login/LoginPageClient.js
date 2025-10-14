@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPageClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
+  // Detect recovery token from URL
   const accessToken = searchParams?.get("access_token");
   const type = searchParams?.get("type");
 
@@ -27,7 +29,10 @@ export default function LoginPageClient() {
     setMessage("");
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (error) throw error;
 
       const { data: empData } = await supabase
@@ -57,7 +62,7 @@ export default function LoginPageClient() {
     setMessage("");
 
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
       });
       if (error) throw error;
@@ -76,7 +81,9 @@ export default function LoginPageClient() {
           Welcome to Rhino Hospitality Group
         </h1>
 
-        {message && <p className="text-center text-yellow-400 mb-4">{message}</p>}
+        {message && (
+          <p className="text-center text-yellow-400 mb-4">{message}</p>
+        )}
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <input
