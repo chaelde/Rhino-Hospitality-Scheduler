@@ -5,24 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // Detect recovery token from URL
-  const accessToken = searchParams.get("access_token");
-  const type = searchParams.get("type");
+  // ✅ Get URL parameters safely
+  const accessToken = searchParams?.get("access_token") || "";
+  const type = searchParams?.get("type") || "";
 
+  // ✅ Redirect if recovery token present
   useEffect(() => {
     if (accessToken && type === "recovery") {
-      // If a recovery link, redirect straight to update-password page
       router.replace(`/update-password?access_token=${accessToken}`);
     }
   }, [accessToken, type, router]);
 
+  // ✅ Login handler
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -51,19 +52,22 @@ export default function LoginPage() {
     }
   };
 
+  // ✅ Forgot password handler
   const handleForgotPassword = async () => {
     if (!email) {
       setMessage("Please enter your email first.");
       return;
     }
+
     setLoading(true);
     setMessage("");
 
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
       });
       if (error) throw error;
+
       setMessage("Password reset email sent! Check your inbox.");
     } catch (err) {
       setMessage("Failed to send reset email: " + err.message);
@@ -73,9 +77,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h1 className="text-3xl font-bold text-center text-white mb-6">Welcome to Rhino Hospitality Group</h1>
+        <h1 className="text-3xl font-bold text-center text-white mb-6">
+          Welcome to Rhino Hospitality Group
+        </h1>
 
         {message && <p className="text-center text-yellow-400 mb-4">{message}</p>}
 
