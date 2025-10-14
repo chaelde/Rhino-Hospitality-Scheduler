@@ -1,7 +1,14 @@
 "use client";
 
-import LoginPageClient from "./LoginPageClient";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
-  return <LoginPageClient />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/login");
+  }, [router]);
+
+  return null; // nothing rendered at root
 }
