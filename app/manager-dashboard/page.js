@@ -176,7 +176,7 @@ export default function ManagerDashboard() {
         alert("Error adding employee: " + (result?.error || res.statusText));
         return;
       }
-      alert(`Employee created! Instructions have been sent to the employee via email."`);
+      alert(`Employee created! Instructions have been sent to the employee via email.`);
       setNewEmployee({ name: "", email: "", phone: "", role: "", location_id: "" });
     } catch (err) {
       console.error(err);

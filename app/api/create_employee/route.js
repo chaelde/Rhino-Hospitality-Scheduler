@@ -5,6 +5,7 @@ export async function POST(req) {
     const body = await req.json();
     const { name, email, phone, role, location_id } = body;
 
+    // Validate required fields
     if (!name || !email || !role || !location_id) {
       return new Response(
         JSON.stringify({ error: "Missing required fields." }),
@@ -12,6 +13,7 @@ export async function POST(req) {
       );
     }
 
+    // Validate location_id format (UUID)
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(location_id)) {
@@ -21,12 +23,10 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 1: Invite user (sends Supabase invite email)
+    // ✅ Step 1: Invite user (send Supabase invite email)
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000");
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
     const redirectTo = `${baseUrl}/set-password`;
 
@@ -76,7 +76,8 @@ export async function POST(req) {
     // ✅ Step 3: Return success
     return new Response(
       JSON.stringify({
-        message: "Employee invited successfully. Email sent for account setup.",
+        message:
+          "Employee invited successfully. Email sent for account setup.",
         employee,
       }),
       { status: 200 }

@@ -1,77 +1,121 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function SetPasswordPage() {
+export default function SetPasswordPageClient() {
   const router = useRouter();
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("Loading...");
-  const [sessionReady, setSessionReady] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
 
-  // ✅ Step 1: Handle token from the magic link
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash) {
-      setMessage("Invalid or expired reset link.");
-      return;
-    }
-
-    const params = new URLSearchParams(hash.substring(1));
+    const params = new URLSearchParams(window.location.search);
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
 
-    if (!access_token || !refresh_token) {
-      setMessage("Missing authentication tokens.");
+    if (access_token && refresh_token) {
+      // New user invite: set session first
+      supabase.auth.setSession({ access_token, refresh_token })
+        .then(({ error }) => {
+          if (error) {
+            setMessage("Error establishing session: " + error.message);
+          } else {
+            setMessage("Session established. Please set your password.");
+            setReady(true);
+          }
+          setLoading(false);
+        });
+    } else if (access_token) {
+      // Password recovery: only access_token available
+      setMessage("Please set your new password.");
+      setReady(true);
+      setLoading(false);
+    } else {
+      setMessage("Invalid or expired link.");
+      setLoading(false);
+    }
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match.");
       return;
     }
 
-    supabase.auth
-      .setSession({ access_token, refresh_token })
-      .then(({ data, error }) => {
-        if (error) {
-          setMessage("Error establishing session: " + error.message);
-        } else {
-          setSessionReady(true);
-          setMessage("Session established. Set your new password below.");
-        }
-      });
-  }, []);
+    setLoading(true);
 
-  // ✅ Step 2: Allow password update once session is set
-  const handlePasswordUpdate = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setMessage("Error updating password: " + error.message);
-    } else {
-      setMessage("Password updated successfully! Redirecting...");
+    const params = new URLSearchParams(window.location.search);
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+
+    try {
+      if (access_token && refresh_token) {
+        // New user invite flow
+        await supabase.auth.setSession({ access_token, refresh_token });
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+      } else if (access_token) {
+        // Password recovery flow
+        const { error } = await supabase.auth.updateUser({ access_token, password });
+        if (error) throw error;
+      } else {
+        throw new Error("Missing authentication token.");
+      }
+
+      setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
+    } catch (err) {
+      setMessage("Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-gray-100">
-      <div className="bg-gray-800 p-6 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-semibold mb-4 text-center">Set Your Password</h1>
-        <p className="text-center text-sm text-gray-400 mb-4">{message}</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-200">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
-        {sessionReady && (
-          <form onSubmit={handlePasswordUpdate} className="space-y-4">
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
+        <h1 className="text-2xl font-bold text-white mb-4 text-center">Set Your Password</h1>
+        <p className="text-center text-yellow-400 mb-4">{message}</p>
+
+        {ready && (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <input
               type="password"
-              placeholder="Enter new password"
-              className="w-full p-3 rounded bg-gray-700 text-gray-200 focus:outline-none"
+              placeholder="New Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="p-3 rounded bg-gray-700 text-gray-200 border border-gray-600"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="p-3 rounded bg-gray-700 text-gray-200 border border-gray-600"
               required
             />
             <button
               type="submit"
-              className="w-full bg-green-600 hover:bg-green-500 p-3 rounded font-semibold"
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded"
             >
-              Update Password
+              {loading ? "Updating..." : "Update Password"}
             </button>
           </form>
         )}
