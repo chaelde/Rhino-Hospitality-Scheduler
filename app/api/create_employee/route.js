@@ -5,7 +5,6 @@ export async function POST(req) {
     const body = await req.json();
     const { name, email, phone, role, location_id } = body;
 
-    // ✅ Validate required fields
     if (!name || !email || !role || !location_id) {
       return new Response(
         JSON.stringify({ error: "Missing required fields." }),
@@ -13,7 +12,6 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Validate location_id format (UUID)
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(location_id)) {
@@ -23,17 +21,17 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 1: Invite user (sends Supabase Confirm Signup email)
-    const redirectTo = `${
+    // ✅ Step 1: Invite user (sends Supabase invite email)
+    const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
-      process.env.VERCEL_URL ||
-      "http://localhost:3000"
-    }/set-password`;
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000");
+
+    const redirectTo = `${baseUrl}/set-password`;
 
     const { data: inviteData, error: inviteError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo,
-      });
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
 
     if (inviteError) {
       console.error("Error sending invite:", inviteError);
@@ -51,7 +49,7 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 2: Insert employee into employees table
+    // ✅ Step 2: Insert employee record
     const { data: employee, error: empError } = await supabaseAdmin
       .from("employees")
       .insert([
