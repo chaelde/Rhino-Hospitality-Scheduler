@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -17,27 +17,26 @@ export default function SetPasswordPageClient() {
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
 
-    if (access_token && refresh_token) {
-      // ✅ New invite flow: set session first
-      supabase.auth.setSession({ access_token, refresh_token })
-        .then(({ error }) => {
-          if (error) {
-            setMessage("Error establishing session: " + error.message);
-          } else {
-            setMessage("Session established. Please set your password.");
-            setReady(true);
-          }
-          setLoading(false);
-        });
-    } else if (access_token) {
-      // ✅ Password recovery flow
-      setMessage("Please set your new password.");
-      setReady(true);
-      setLoading(false);
-    } else {
+    if (!access_token) {
       setMessage("Invalid or expired link.");
       setLoading(false);
+      return;
     }
+
+    const sessionObj = refresh_token
+      ? { access_token, refresh_token }
+      : { access_token };
+
+    supabase.auth
+      .setSession(sessionObj)
+      .then(({ error }) => {
+        if (error) setMessage("Error establishing session: " + error.message);
+        else {
+          setMessage("Session established. Please set your password.");
+          setReady(true);
+        }
+        setLoading(false);
+      });
   }, []);
 
   const handleSubmit = async (e) => {
@@ -50,24 +49,9 @@ export default function SetPasswordPageClient() {
     }
 
     setLoading(true);
-
     try {
-      const params = new URLSearchParams(window.location.search);
-      const access_token = params.get("access_token");
-      const refresh_token = params.get("refresh_token");
-
-      if (access_token && refresh_token) {
-        // New invite flow
-        await supabase.auth.setSession({ access_token, refresh_token });
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-      } else if (access_token) {
-        // Password recovery flow
-        const { error } = await supabase.auth.updateUser({ access_token, password });
-        if (error) throw error;
-      } else {
-        throw new Error("Missing authentication token.");
-      }
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
 
       setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
@@ -78,18 +62,19 @@ export default function SetPasswordPageClient() {
     }
   };
 
-  if (loading) {
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-200">
         <p>Loading...</p>
       </div>
     );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h1 className="text-2xl font-bold text-white mb-4 text-center">Set Your Password</h1>
+        <h1 className="text-2xl font-bold text-white mb-4 text-center">
+          Set Your Password
+        </h1>
         <p className="text-center text-yellow-400 mb-4">{message}</p>
 
         {ready && (
