@@ -1,80 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function UpdatePasswordPage() {
+export default function SetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("Loading...");
   const [sessionReady, setSessionReady] = useState(false);
-  const [loading, setLoading] = useState(false);
 
+  // ✅ Step 1: Handle token from the magic link
   useEffect(() => {
-    const access_token = searchParams.get("access_token");
-    const refresh_token = searchParams.get("refresh_token");
-
-    if (!access_token) {
-      setMessage("Invalid or expired link.");
+    const hash = window.location.hash;
+    if (!hash) {
+      setMessage("Invalid or expired reset link.");
       return;
     }
 
-    // ✅ Set the session from the invite/recovery link
-    supabase.auth.setSession({ access_token, refresh_token })
-      .then(({ error }) => {
+    const params = new URLSearchParams(hash.substring(1));
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+
+    if (!access_token || !refresh_token) {
+      setMessage("Missing authentication tokens.");
+      return;
+    }
+
+    supabase.auth
+      .setSession({ access_token, refresh_token })
+      .then(({ data, error }) => {
         if (error) {
-          setMessage("Error restoring session: " + error.message);
+          setMessage("Error establishing session: " + error.message);
         } else {
-          setMessage("Session ready. Please set your new password below.");
           setSessionReady(true);
+          setMessage("Session established. Set your new password below.");
         }
       });
-  }, [searchParams]);
+  }, []);
 
+  // ✅ Step 2: Allow password update once session is set
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage("");
-
     const { error } = await supabase.auth.updateUser({ password });
-
     if (error) {
       setMessage("Error updating password: " + error.message);
     } else {
-      setMessage("✅ Password updated! Redirecting to login...");
+      setMessage("Password updated successfully! Redirecting...");
       setTimeout(() => router.push("/login"), 2000);
     }
-
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-200 p-4">
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4 text-center">Set Your Password</h1>
-        <p className="text-center text-gray-400 mb-4">{message}</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-gray-100">
+      <div className="bg-gray-800 p-6 rounded-lg shadow-md w-full max-w-md">
+        <h1 className="text-2xl font-semibold mb-4 text-center">Set Your Password</h1>
+        <p className="text-center text-sm text-gray-400 mb-4">{message}</p>
 
         {sessionReady && (
-          <form onSubmit={handlePasswordUpdate} className="flex flex-col gap-4">
+          <form onSubmit={handlePasswordUpdate} className="space-y-4">
             <input
               type="password"
               placeholder="Enter new password"
-              className="p-3 rounded bg-gray-700 border border-gray-600 text-gray-100"
+              className="w-full p-3 rounded bg-gray-700 text-gray-200 focus:outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
             <button
               type="submit"
-              disabled={loading}
-              className={`bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded transition ${
-                loading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className="w-full bg-green-600 hover:bg-green-500 p-3 rounded font-semibold"
             >
-              {loading ? "Updating..." : "Update Password"}
+              Update Password
             </button>
           </form>
         )}
