@@ -5,7 +5,7 @@ export async function POST(req) {
     const body = await req.json();
     const { name, email, phone, role, location_id } = body;
 
-    // Validate required fields
+    // ✅ Required fields
     if (!name || !email || !role || !location_id) {
       return new Response(
         JSON.stringify({ error: "Missing required fields." }),
@@ -13,7 +13,7 @@ export async function POST(req) {
       );
     }
 
-    // Validate location_id format (UUID)
+    // ✅ Validate location_id as UUID
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(location_id)) {
@@ -23,13 +23,14 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 1: Invite user (send Supabase invite email)
+    // ✅ Base URL for redirect links
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
     const redirectTo = `${baseUrl}/set-password`;
 
+    // ✅ Invite the user via Supabase Admin API
     const { data: inviteData, error: inviteError } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
 
@@ -49,7 +50,7 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 2: Insert employee record
+    // ✅ Insert employee record
     const { data: employee, error: empError } = await supabaseAdmin
       .from("employees")
       .insert([
@@ -73,12 +74,13 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Step 3: Return success
+    // ✅ Success response
     return new Response(
       JSON.stringify({
-        message:
-          "Employee invited successfully. Email sent for account setup.",
+        message: "Employee invited successfully. Email sent for account setup.",
         employee,
+        tempPasswordInfo:
+          "The email contains a link to set your password securely.",
       }),
       { status: 200 }
     );

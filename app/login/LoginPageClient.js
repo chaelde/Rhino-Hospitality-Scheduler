@@ -12,19 +12,20 @@ export default function LoginPageClient() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [mounted, setMounted] = useState(false); // <-- new
+  const [mounted, setMounted] = useState(false);
 
   // Detect recovery token from URL
   const accessToken = searchParams?.get("access_token");
   const type = searchParams?.get("type");
 
   useEffect(() => {
-    setMounted(true); // <-- page is mounted
+    setMounted(true);
   }, []);
 
+  // Redirect to set-password page if recovering
   useEffect(() => {
     if (accessToken && type === "recovery") {
-      router.replace(`/update-password?access_token=${accessToken}`);
+      router.replace(`/set-password?access_token=${accessToken}`);
     }
   }, [accessToken, type, router]);
 
@@ -68,7 +69,7 @@ export default function LoginPageClient() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: `${window.location.origin}/set-password`,
       });
       if (error) throw error;
       setMessage("Password reset email sent! Check your inbox.");
@@ -79,7 +80,6 @@ export default function LoginPageClient() {
     }
   };
 
-  // <-- only render after mounted
   if (!mounted) return null;
 
   return (
@@ -89,9 +89,7 @@ export default function LoginPageClient() {
           Welcome to Rhino Hospitality Group
         </h1>
 
-        {message && (
-          <p className="text-center text-yellow-400 mb-4">{message}</p>
-        )}
+        {message && <p className="text-center text-yellow-400 mb-4">{message}</p>}
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <input

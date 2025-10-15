@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -17,20 +17,23 @@ export default function SetPasswordPageClient() {
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
 
-    if (access_token) {
-      // Always set session first, whether invite or recovery
-      supabase.auth.setSession({
-        access_token,
-        refresh_token: refresh_token || undefined,
-      })
+    if (access_token && refresh_token) {
+      // ✅ New invite flow: set session first
+      supabase.auth.setSession({ access_token, refresh_token })
         .then(({ error }) => {
-          if (error) setMessage("Error establishing session: " + error.message);
-          else {
+          if (error) {
+            setMessage("Error establishing session: " + error.message);
+          } else {
             setMessage("Session established. Please set your password.");
             setReady(true);
           }
           setLoading(false);
         });
+    } else if (access_token) {
+      // ✅ Password recovery flow
+      setMessage("Please set your new password.");
+      setReady(true);
+      setLoading(false);
     } else {
       setMessage("Invalid or expired link.");
       setLoading(false);
@@ -49,9 +52,22 @@ export default function SetPasswordPageClient() {
     setLoading(true);
 
     try {
-      // ✅ updateUser only works if session is active
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      const params = new URLSearchParams(window.location.search);
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+
+      if (access_token && refresh_token) {
+        // New invite flow
+        await supabase.auth.setSession({ access_token, refresh_token });
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+      } else if (access_token) {
+        // Password recovery flow
+        const { error } = await supabase.auth.updateUser({ access_token, password });
+        if (error) throw error;
+      } else {
+        throw new Error("Missing authentication token.");
+      }
 
       setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
