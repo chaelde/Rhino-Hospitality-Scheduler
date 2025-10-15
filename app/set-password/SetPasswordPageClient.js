@@ -17,23 +17,20 @@ export default function SetPasswordPageClient() {
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
 
-    if (access_token && refresh_token) {
-      // New user invite: set session first
-      supabase.auth.setSession({ access_token, refresh_token })
+    if (access_token) {
+      // Always set session first, whether invite or recovery
+      supabase.auth.setSession({
+        access_token,
+        refresh_token: refresh_token || undefined,
+      })
         .then(({ error }) => {
-          if (error) {
-            setMessage("Error establishing session: " + error.message);
-          } else {
+          if (error) setMessage("Error establishing session: " + error.message);
+          else {
             setMessage("Session established. Please set your password.");
             setReady(true);
           }
           setLoading(false);
         });
-    } else if (access_token) {
-      // Password recovery: only access_token available
-      setMessage("Please set your new password.");
-      setReady(true);
-      setLoading(false);
     } else {
       setMessage("Invalid or expired link.");
       setLoading(false);
@@ -51,23 +48,10 @@ export default function SetPasswordPageClient() {
 
     setLoading(true);
 
-    const params = new URLSearchParams(window.location.search);
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
-
     try {
-      if (access_token && refresh_token) {
-        // New user invite flow
-        await supabase.auth.setSession({ access_token, refresh_token });
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-      } else if (access_token) {
-        // Password recovery flow
-        const { error } = await supabase.auth.updateUser({ access_token, password });
-        if (error) throw error;
-      } else {
-        throw new Error("Missing authentication token.");
-      }
+      // ✅ updateUser only works if session is active
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
 
       setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
