@@ -7,50 +7,52 @@ import { supabase } from "@/lib/supabaseClient";
 export default function SetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
-  const token = searchParams.get("token");
+  // ✅ Get tokens directly from URL (from the invite email)
+  const accessToken = searchParams.get("access_token");
+  const refreshToken = searchParams.get("refresh_token");
 
-  // Step 1: Verify token on mount
+  // Step 1: Establish Supabase session immediately
   useEffect(() => {
-    if (!token) {
-      setMessage("Missing or invalid token.");
-      return;
-    }
+    const initSession = async () => {
+      if (!accessToken || !refreshToken) {
+        setMessage("Missing or invalid access token.");
+        return;
+      }
 
-    const verifyToken = async () => {
-      setLoading(true);
       try {
-        const res = await fetch("/api/verify-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
+        setLoading(true);
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
         });
-        const result = await res.json();
 
-        if (!res.ok) throw new Error(result.error || "Invalid token");
+        if (error) throw error;
 
-        const { access_token, refresh_token } = result.data.session;
-        await supabase.auth.setSession({ access_token, refresh_token });
-
-        setSessionReady(true);
-        setMessage("Session verified. Please set your password.");
+        if (data.session) {
+          setSessionReady(true);
+          setMessage("Session verified. You can now set your password.");
+        } else {
+          throw new Error("No session returned from Supabase.");
+        }
       } catch (err) {
-        console.error("verifyToken error:", err);
-        setMessage("Failed to verify session: " + err.message);
+        console.error("Session error:", err);
+        setMessage("Error establishing session: " + err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    verifyToken();
-  }, [token]);
+    initSession();
+  }, [accessToken, refreshToken]);
 
-  // Step 2: Submit new password
+  // Step 2: Handle password update
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -64,7 +66,7 @@ export default function SetPasswordPage() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
-      setMessage("Password updated! Redirecting to login...");
+      setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
     } catch (err) {
       setMessage("Error updating password: " + err.message);
@@ -76,8 +78,13 @@ export default function SetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h1 className="text-2xl font-bold text-white mb-4 text-center">Set Your Password</h1>
-        {message && <p className="text-yellow-400 text-center mb-4">{message}</p>}
+        <h1 className="text-2xl font-bold text-white mb-4 text-center">
+          Set Your Password
+        </h1>
+
+        {message && (
+          <p className="text-yellow-400 text-center mb-4">{message}</p>
+        )}
 
         {sessionReady && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
