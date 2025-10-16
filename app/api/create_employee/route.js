@@ -1,91 +1,52 @@
+// pages/api/create-employee.js
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req) {
   try {
     const body = await req.json();
     const { name, email, phone, role, location_id } = body;
 
-    // Validate required fields
-    if (!name || !email || !role || !location_id) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields." }),
-        { status: 400 }
-      );
-    }
+    if (!name || !email || !role || !location_id)
+      return new Response(JSON.stringify({ error: "Missing required fields." }), { status: 400 });
 
-    // Validate location_id (UUID)
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(location_id)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid location_id." }),
-        { status: 400 }
-      );
-    }
+    // Create user in Supabase Auth
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: "temporary-password-123!", // temporary placeholder
+      email_confirm: true,
+    });
 
-    // Build redirect URL for invite
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const redirectTo = `${baseUrl}/set-password`;
-
-    // Invite user
-    const { data: inviteData, error: inviteError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
-
-    if (inviteError) {
-      console.error("Error sending invite:", inviteError);
-      return new Response(
-        JSON.stringify({ error: inviteError.message }),
-        { status: 400 }
-      );
-    }
-
-    const userId = inviteData?.user?.id;
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "User creation failed — no ID returned." }),
-        { status: 500 }
-      );
-    }
+    if (userError) throw userError;
+    const userId = userData?.id;
 
     // Insert employee record
     const { data: employee, error: empError } = await supabaseAdmin
       .from("employees")
-      .insert([
-        {
-          auth_id: userId,
-          name,
-          email,
-          phone: phone || null,
-          role,
-          location_id,
-        },
-      ])
+      .insert([{ auth_id: userId, name, email, phone: phone || null, role, location_id }])
       .select()
       .single();
 
-    if (empError) {
-      console.error("Error inserting employee:", empError);
-      return new Response(
-        JSON.stringify({ error: empError.message }),
-        { status: 400 }
-      );
-    }
+    if (empError) throw empError;
 
-    // ✅ Return success with message
-    return new Response(
-      JSON.stringify({
-        message:
-          "Employee invited successfully. Email sent for account setup.",
-        employee,
-        // Optional: include the confirmation URL in response for debugging
-        confirmation_url: inviteData?.confirmation_url || null,
-      }),
-      { status: 200 }
-    );
+    // Generate custom token
+    const token = uuidv4();
+    const { error: tokenError } = await supabaseAdmin
+      .from("password_tokens")
+      .insert([{ auth_id: userId, token, expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) }]); // 24h expiry
+
+    if (tokenError) throw tokenError;
+
+    // Send custom email
+    const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://rhino-hospitality-scheduler.vercel.app";
+    const passwordLink = `${siteUrl}/set-password?token=${token}`;
+    await sendEmail(email, name, passwordLink); // implement sendEmail separately
+
+    return new Response(JSON.stringify({ message: "Employee created and email sent.", employee }), {
+      status: 200,
+    });
   } catch (err) {
-    console.error("Unexpected error:", err);
+    console.error(err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }

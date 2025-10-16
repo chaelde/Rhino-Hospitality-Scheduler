@@ -1,91 +1,63 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
-  // ✅ Get tokens directly from URL (from the invite email)
-  const accessToken = searchParams.get("access_token");
-  const refreshToken = searchParams.get("refresh_token");
+  const token = searchParams.get("token");
 
-  // Step 1: Establish Supabase session immediately
   useEffect(() => {
-    const initSession = async () => {
-      if (!accessToken || !refreshToken) {
-        setMessage("Missing or invalid access token.");
-        return;
-      }
+    if (!token) return setMessage("Missing token.");
 
+    const verifyToken = async () => {
       try {
-        setLoading(true);
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
+        const res = await fetch("/api/verify-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
         });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error);
 
-        if (error) throw error;
-
-        if (data.session) {
-          setSessionReady(true);
-          setMessage("Session verified. You can now set your password.");
-        } else {
-          throw new Error("No session returned from Supabase.");
-        }
+        const { access_token, refresh_token } = result.data.session;
+        await supabase.auth.setSession({ access_token, refresh_token });
+        setSessionReady(true);
+        setMessage("Session verified. Set your password.");
       } catch (err) {
-        console.error("Session error:", err);
-        setMessage("Error establishing session: " + err.message);
-      } finally {
-        setLoading(false);
+        setMessage("Error verifying token: " + err.message);
       }
     };
 
-    initSession();
-  }, [accessToken, refreshToken]);
+    verifyToken();
+  }, [token]);
 
-  // Step 2: Handle password update
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
+    if (password !== confirmPassword) return setMessage("Passwords do not match.");
 
     try {
-      setLoading(true);
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-
-      setMessage("Password updated successfully! Redirecting to login...");
+      setMessage("Password updated! Redirecting...");
       setTimeout(() => router.push("/login"), 2000);
     } catch (err) {
       setMessage("Error updating password: " + err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <div className="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h1 className="text-2xl font-bold text-white mb-4 text-center">
-          Set Your Password
-        </h1>
-
-        {message && (
-          <p className="text-yellow-400 text-center mb-4">{message}</p>
-        )}
-
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="p-8 bg-gray-800 rounded-xl">
+        <h1 className="text-white text-center text-2xl mb-4">Set Your Password</h1>
+        <p className="text-yellow-400 text-center mb-4">{message}</p>
         {sessionReady && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <input
@@ -93,7 +65,7 @@ export default function SetPasswordPage() {
               placeholder="New Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="p-3 rounded bg-gray-700 text-gray-200 border border-gray-600"
+              className="p-3 rounded bg-gray-700 text-white"
               required
             />
             <input
@@ -101,15 +73,11 @@ export default function SetPasswordPage() {
               placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="p-3 rounded bg-gray-700 text-gray-200 border border-gray-600"
+              className="p-3 rounded bg-gray-700 text-white"
               required
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded"
-            >
-              {loading ? "Updating..." : "Update Password"}
+            <button type="submit" className="bg-blue-600 py-3 rounded text-white">
+              Update Password
             </button>
           </form>
         )}
