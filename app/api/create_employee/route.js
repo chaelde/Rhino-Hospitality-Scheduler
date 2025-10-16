@@ -73,10 +73,14 @@ export async function POST(req) {
       );
     }
 
+    // ✅ Return success with message
     return new Response(
       JSON.stringify({
-        message: "Employee invited successfully. Email sent for account setup.",
+        message:
+          "Employee invited successfully. Email sent for account setup.",
         employee,
+        // Optional: include the confirmation URL in response for debugging
+        confirmation_url: inviteData?.confirmation_url || null,
       }),
       { status: 200 }
     );
