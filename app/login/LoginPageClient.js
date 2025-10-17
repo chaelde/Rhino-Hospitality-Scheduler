@@ -12,7 +12,7 @@ export default function LoginPageClient() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const TEMP_PASSWORD = "TempRHGpass!"; // temporary password assigned to new users
+  const TEMP_PASSWORD = "TempRHGpass!"; // default temporary password
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,14 +20,11 @@ export default function LoginPageClient() {
     setMessage("");
 
     try {
-      // Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Sign in user
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Fetch employee data
+      // Fetch employee record
       const { data: empData, error: empError } = await supabase
         .from("employees")
         .select("role, must_change_password")
@@ -36,7 +33,7 @@ export default function LoginPageClient() {
 
       if (empError) throw empError;
 
-      // Force password change if using temp password or must_change_password flag
+      // Force password change if temp or flagged
       if (password === TEMP_PASSWORD || empData?.must_change_password) {
         router.replace(`/force-change-password?user_id=${data.user.id}`);
         return;
@@ -64,10 +61,16 @@ export default function LoginPageClient() {
     setMessage("");
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/force-change-password`,
+      // Call your new secure API route instead of direct Supabase call
+      const res = await fetch("/api/send-reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
-      if (error) throw error;
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send reset email.");
+
       setMessage("Password reset email sent! Check your inbox.");
     } catch (err) {
       setMessage("Failed to send reset email: " + err.message);

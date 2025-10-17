@@ -57,7 +57,7 @@ export async function POST(req) {
     await transporter.sendMail({
       from: `"Rhino Hospitality" <no-reply@rhino.com>`,
       to: email,
-      subject: "Your Rhino Scheduler Account",
+      subject: "Your Rhino Hospitality Group Scheduler Account",
       html: `
         <h2>Welcome to Rhino Hospitality Group’s Scheduler</h2>
         <p>Hello ${name},</p>
