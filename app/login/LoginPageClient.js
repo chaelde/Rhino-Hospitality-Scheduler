@@ -1,33 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPageClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [mounted, setMounted] = useState(false);
 
-  // Detect recovery token from URL
-  const accessToken = searchParams?.get("access_token");
-  const type = searchParams?.get("type");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Redirect to set-password page if recovering
-  useEffect(() => {
-    if (accessToken && type === "recovery") {
-      router.replace(`/set-password?access_token=${accessToken}`);
-    }
-  }, [accessToken, type, router]);
+  const TEMP_PASSWORD = "TempRHGpass!"; // temporary password assigned to new users
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -35,18 +20,29 @@ export default function LoginPageClient() {
     setMessage("");
 
     try {
+      // Sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
 
-      const { data: empData } = await supabase
+      // Fetch employee data
+      const { data: empData, error: empError } = await supabase
         .from("employees")
-        .select("role")
+        .select("role, must_change_password")
         .eq("auth_id", data.user.id)
         .maybeSingle();
 
+      if (empError) throw empError;
+
+      // Force password change if using temp password or must_change_password flag
+      if (password === TEMP_PASSWORD || empData?.must_change_password) {
+        router.replace(`/force-change-password?user_id=${data.user.id}`);
+        return;
+      }
+
+      // Redirect based on role
       if (["Manager", "Admin"].includes(empData?.role)) {
         router.replace("/manager-dashboard");
       } else {
@@ -69,7 +65,7 @@ export default function LoginPageClient() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/set-password`,
+        redirectTo: `${window.location.origin}/force-change-password`,
       });
       if (error) throw error;
       setMessage("Password reset email sent! Check your inbox.");
@@ -79,8 +75,6 @@ export default function LoginPageClient() {
       setLoading(false);
     }
   };
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
