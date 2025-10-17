@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function ForceChangePassword() {
   const router = useRouter();
@@ -21,19 +20,18 @@ export default function ForceChangePassword() {
       return;
     }
 
+    setLoading(true);
+    setMessage("");
+
     try {
-      setLoading(true);
+      const res = await fetch("/api/update-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, password }),
+      });
 
-      // Update user password
-      const { error } = await supabase.auth.admin.updateUserById(userId, { password });
-      if (error) throw error;
-
-      // Update employees table to remove force-change flag
-      const { error: empError } = await supabase
-        .from("employees")
-        .update({ must_change_password: false })
-        .eq("auth_id", userId);
-      if (empError) throw empError;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password.");
 
       setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => router.push("/login"), 2000);
