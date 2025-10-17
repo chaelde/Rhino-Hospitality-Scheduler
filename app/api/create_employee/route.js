@@ -12,24 +12,31 @@ export async function POST(req) {
 
     const TEMP_PASSWORD = "TempRHGpass!";
 
-    const { data: user, error: userError } = await supabaseAdmin.auth.admin.createUser({
+    // ✅ Create user and extract the nested user.id properly
+    const { data, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: TEMP_PASSWORD,
       email_confirm: true,
     });
     if (userError) throw userError;
 
+    const userId = data?.user?.id; // ✅ FIXED
+    if (!userId) throw new Error("User creation succeeded but no ID returned.");
+
+    // ✅ Insert employee record
     const { data: employee, error: empError } = await supabaseAdmin
       .from("employees")
-      .insert([{
-        auth_id: user.id,
-        name,
-        email,
-        phone: phone || null,
-        role,
-        location_id,
-        must_change_password: true,
-      }])
+      .insert([
+        {
+          auth_id: userId,
+          name,
+          email,
+          phone: phone || null,
+          role,
+          location_id,
+          must_change_password: true,
+        },
+      ])
       .select()
       .single();
     if (empError) throw empError;
@@ -44,7 +51,8 @@ export async function POST(req) {
       },
     });
 
-    const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || `https://${process.env.VERCEL_URL}`;
+    const siteUrl =
+      process.env.NEXT_PUBLIC_BASE_URL || `https://${process.env.VERCEL_URL}`;
 
     await transporter.sendMail({
       from: `"Rhino Hospitality" <no-reply@rhino.com>`,
