@@ -635,14 +635,22 @@ useEffect(() => {
                                   </div>
                                 );
                               })}
-                              {canManage && !blocked && (
-                                <button
-                                  onClick={() => handleAddShift(emp.id, format(day, "yyyy-MM-dd"))}
-                                  className="bg-blue-600 text-white px-2 py-1 rounded mt-1 w-full hover:bg-blue-500"
-                                >
-                                  + Shift
-                                </button>
-                              )}
+                             {canManage && (
+  blocked ? (
+    <div className="text-red-400 font-bold mt-1 text-center">
+      Approved Time Off
+      {blocked.reason && <div className="text-sm">{blocked.reason}</div>}
+    </div>
+  ) : (
+    <button
+      onClick={() => handleAddShift(emp.id, format(day, "yyyy-MM-dd"))}
+      className="bg-blue-600 text-white px-2 py-1 rounded mt-1 w-full hover:bg-blue-500"
+    >
+      + Shift
+    </button>
+  )
+)}
+
                             </td>
                           );
                         })}

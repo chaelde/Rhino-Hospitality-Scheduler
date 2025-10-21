@@ -266,11 +266,11 @@ export default function EmployeesPage() {
       .map((el) => el.location_id);
   }
 
-  const filteredEmployees = filterLocation
-    ? employees.filter((e) =>
-        getEmployeeLocationIds(e.id).includes(Number(filterLocation))
-      )
-    : employees;
+ const filteredEmployees = filterLocation
+  ? employees.filter((e) =>
+      getEmployeeLocationIds(e.id).includes(filterLocation)
+    )
+  : employees;
 
   const weekDays = Array.from({ length: 7 }).map((_, i) =>
     addDays(startOfWeek(scheduleWeek, { weekStartsOn: 1 }), i)
